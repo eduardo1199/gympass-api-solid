@@ -8,7 +8,7 @@
     "build": "tsup src --out-dir build",
     "start": "node build/server.js",
     "lint": "eslint src --ext .ts --fix",
-    "migrate": "prisma migrate dev --name",
+    "migrate:dev": "prisma migrate dev --name",
     "studio": "prisma studio"
   },
   "keywords": [],
