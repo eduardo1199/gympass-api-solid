@@ -15,7 +15,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@prisma/client": "4.14.0",
+    "@prisma/client": "4.14.1",
     "bcryptjs": "2.4.3",
     "dotenv": "16.0.3",
     "fastify": "4.17.0",
@@ -26,7 +26,7 @@
     "@types/bcryptjs": "2.4.2",
     "@types/node": "18.16.13",
     "eslint": "8.40.0",
-    "prisma": "4.14.0",
+    "prisma": "4.14.1",
     "tsup": "6.7.0",
     "tsx": "3.12.7",
     "typescript": "5.0.4"
