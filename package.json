@@ -31,7 +31,7 @@
     "@types/bcryptjs": "2.4.2",
     "@types/node": "18.16.14",
     "eslint": "8.41.0",
-    "husky": "8.0.3",
+    "husky": "^8.0.0",
     "prisma": "4.14.1",
     "tsup": "6.7.0",
     "tsx": "3.12.7",
