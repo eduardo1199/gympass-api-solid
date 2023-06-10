@@ -10,9 +10,11 @@
     "lint": "eslint src --ext .ts --fix --report-unused-disable-directives --max-warnings 0",
     "migrate:dev": "prisma migrate dev --name",
     "studio": "prisma studio",
+    "prepare": "husky install",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepare": "husky install"
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui"
   },
   "keywords": [],
   "author": "",
@@ -30,6 +32,8 @@
     "@rocketseat/eslint-config": "1.2.0",
     "@types/bcryptjs": "2.4.2",
     "@types/node": "18.16.14",
+    "@vitest/coverage-v8": "0.32.0",
+    "@vitest/ui": "0.32.0",
     "eslint": "8.41.0",
     "husky": "^8.0.0",
     "prisma": "4.14.1",
