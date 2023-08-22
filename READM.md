@@ -1,6 +1,38 @@
 # App
 
 GymPass style app.
+# GymPass
+
+## Projeto backend desenvolvido em NodeJS para capacitação de API Rest. Introdução de conceitos de SOLID, Token, Refresh Token, JWT, Docker
+
+## Docker comands help
+
+view containers run
+
+<aside>
+💡 docker ps ou docker ps -a
+
+</aside>
+
+run container 
+
+<aside>
+💡 docker start {isdContainer} ou {nome_container}
+
+</aside>
+
+## image run docker database postgres
+
+code run terminal
+
+<aside>
+💡 docker run --name api-solid-pg -e POSTGRESQL_USERNAME=docker -e POSTGRESQL_PASSWORD=docker -e POSTGRESQL_DATABASE=api_solid -p 5432:5432 bitnami/postgresql
+
+</aside>
+
+## 
+
+## Use Case CheckIn
 
 ## RF (Requisitos funcionais)
  
