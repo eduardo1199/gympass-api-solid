@@ -3,7 +3,10 @@ import { CheckIn, Prisma } from '@prisma/client'
 import { CheckInRepository } from './checkin-repository'
 
 export class PrismaCheckInRepository implements CheckInRepository {
-  async findByUserId(userId: string, date: Date): Promise<CheckIn | null> {
+  async findByUserIdOnDate(
+    userId: string,
+    date: Date,
+  ): Promise<CheckIn | null> {
     return null
   }
 
