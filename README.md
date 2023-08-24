@@ -250,3 +250,79 @@ Utilizamos o dayjs que é uma biblioteca para lidar com datas. Além disso, foi 
 💡 const gym = await *this*.gymsRepository.findById(*gymId*)
 
 </aside>
+
+## Validando distância de check-in
+
+Aqui adicionamos uma função para calcular a distância entre coordendas da latitute de longitude entre o check-in da acadamia e a academia. Criamos um teste para falhar caso o checkin esteja acima de 100m da academia.
+
+```
+it('should not be able to check-in in on distance gym', async () => {
+    gymsRepository.items.push({
+      id: 'gym-02',
+      description: 'Gym',
+      title: 'Gym test',
+      latitude: new Decimal(-5.8344579),
+      longitude: new Decimal(-35.2075184),
+      phone: '(84)846161861',
+    })
+
+    expect(
+      createCheckInUseCase.execute({
+        gymId: 'gym-02',
+        userId: 'user-01',
+        userLatitude: -5.8980271,
+        userLongitude: -35.2697794,
+      }),
+    ).rejects.toBeInstanceOf(Error)
+  })
+```
+
+```
+const MAX_DISTANCE_BETWEEN_COORDINATES = 0.1 // KM UNIT
+
+    if (distance > MAX_DISTANCE_BETWEEN_COORDINATES) {
+      throw new Error()
+    }
+```
+
+## Caso de uso de criação da academia
+
+Criamos um caso de uso de criação de uma academia, bem como seu teste unitário e seu método create no repositório.
+
+```
+export class CreateGymUseCase {
+  constructor(private gymsRepository: GymsRepository) {}
+
+  async execute({
+    description,
+    latitude,
+    longitude,
+    phone,
+    title,
+  }: CreateGymUseCaseRequest): Promise<CreateGymUseCaseResponse> {
+    const gym = await this.gymsRepository.create({
+      latitude,
+      longitude,
+      title,
+      description,
+      phone,
+    })
+
+    return { gym }
+  }
+}
+```
+
+```
+it('should be able to create gym', async () => {
+    const { gym } = await createGymUseCase.execute({
+      title: 'Javascript Gym',
+      latitude: -5.8344579,
+      longitude: -35.2075184,
+      description: null,
+      phone: null,
+    })
+
+    expect(gym.id).toEqual(expect.any(String))
+  })
+```
