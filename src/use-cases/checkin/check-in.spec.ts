@@ -3,23 +3,25 @@ import { CheckInUseCase } from './checkin'
 import { InMemoryCheckInRepository } from '@/repositories/prisma/in-memory/in-memory-checkin-repository'
 import { InMemoryGymsRepository } from '@/repositories/prisma/in-memory/in-memory-gyms-repository'
 import { Decimal } from '@prisma/client/runtime/library'
+import { MaxNumberOfCheckInEsError } from '../errors/max-number-of-check-in-error'
+import { MaxDistanceError } from '../errors/max-distance.error'
 
 let checkInRepository: InMemoryCheckInRepository
 let gymsRepository: InMemoryGymsRepository
 let createCheckInUseCase: CheckInUseCase
 
 describe('Authenticate use case', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     checkInRepository = new InMemoryCheckInRepository()
     gymsRepository = new InMemoryGymsRepository()
     createCheckInUseCase = new CheckInUseCase(checkInRepository, gymsRepository)
 
-    gymsRepository.items.push({
+    await gymsRepository.create({
       id: 'gym-01',
       description: 'Gym',
       title: 'Gym test',
-      latitude: new Decimal(0),
-      longitude: new Decimal(0),
+      latitude: -5.8344579,
+      longitude: -35.2075184,
       phone: '(84)846161861',
     })
 
@@ -34,8 +36,8 @@ describe('Authenticate use case', () => {
     const checkIn = await createCheckInUseCase.execute({
       gymId: 'gym-01',
       userId: 'user-01',
-      userLatitude: 0,
-      userLongitude: 0,
+      userLatitude: -5.8344579,
+      userLongitude: -35.2075184,
     })
 
     expect(checkIn.checkIn.id).toEqual(expect.any(String))
@@ -47,18 +49,20 @@ describe('Authenticate use case', () => {
     await createCheckInUseCase.execute({
       gymId: 'gym-01',
       userId: 'user-01',
-      userLatitude: 0,
-      userLongitude: 0,
+      userLatitude: -5.8344579,
+      userLongitude: -35.2075184,
     })
 
-    const expectError = await createCheckInUseCase.execute({
-      gymId: 'gym-01',
-      userId: 'user-01',
-      userLatitude: 0,
-      userLongitude: 0,
-    })
+    vi.setSystemTime(new Date(2023, 7, 20))
 
-    expect(expectError).toThrowError(Error)
+    expect(
+      createCheckInUseCase.execute({
+        gymId: 'gym-01',
+        userId: 'user-01',
+        userLatitude: -5.8344579,
+        userLongitude: -35.2075184,
+      }),
+    ).rejects.toBeInstanceOf(MaxNumberOfCheckInEsError)
   })
 
   it('should not be able to check-in in twice but in different days', async () => {
@@ -67,8 +71,8 @@ describe('Authenticate use case', () => {
     await createCheckInUseCase.execute({
       gymId: 'gym-01',
       userId: 'user-01',
-      userLatitude: 0,
-      userLongitude: 0,
+      userLatitude: -5.8344579,
+      userLongitude: -35.2075184,
     })
 
     vi.setSystemTime(new Date(2023, 7, 23))
@@ -76,10 +80,30 @@ describe('Authenticate use case', () => {
     const checkIn = await createCheckInUseCase.execute({
       gymId: 'gym-01',
       userId: 'user-01',
-      userLatitude: 0,
-      userLongitude: 0,
+      userLatitude: -5.8344579,
+      userLongitude: -35.2075184,
     })
 
     expect(checkIn.checkIn.id).toEqual(expect.any(String))
+  })
+
+  it('should not be able to check-in in on distance gym', async () => {
+    gymsRepository.items.push({
+      id: 'gym-02',
+      description: 'Gym',
+      title: 'Gym test',
+      latitude: new Decimal(-5.8344579),
+      longitude: new Decimal(-35.2075184),
+      phone: '(84)846161861',
+    })
+
+    expect(
+      createCheckInUseCase.execute({
+        gymId: 'gym-02',
+        userId: 'user-01',
+        userLatitude: -5.8980271,
+        userLongitude: -35.2697794,
+      }),
+    ).rejects.toBeInstanceOf(MaxDistanceError)
   })
 })
