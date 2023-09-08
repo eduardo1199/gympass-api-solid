@@ -326,3 +326,97 @@ it('should be able to create gym', async () => {
     expect(gym.id).toEqual(expect.any(String))
   })
 ```
+
+## Caso de uso de histórico de checkIns
+
+Para esse caso de uso, basicamente através do ID do usuário seremos capazes de retornamos todos os check-ins realizados desse usuário de referência.
+
+<aside>
+💡 Case use
+
+</aside>
+
+```
+export class FetchUserCheckInsUseCase {
+  constructor(private checkInRepository: CheckInRepository) {}
+
+  async execute({
+    userId,
+    page,
+  }: FetchUserCheckInsUseCaseRequest): Promise<FetchUserCheckInsResponse> {
+    const checkIns = await this.checkInRepository.findManyByUserId(userId, page)
+
+    return {
+      checkIns,
+    }
+  }
+}
+```
+
+Desevolvemos o teste unitário.
+
+<aside>
+💡 Primeiro teste para verificar se possui os dois check-ins criados pelo mesmo usuário.
+Segundo teste, para verificar a paginação implementada no repository.
+
+</aside>
+
+```
+it('should be able to fetch check-in history', async () => {
+    await checkInRepository.create({
+      gym_id: 'gym-01',
+      user_id: 'user-01',
+    })
+
+    await checkInRepository.create({
+      gym_id: 'gym-02',
+      user_id: 'user-01',
+    })
+
+    const { checkIns } = await fetchUserCheckInsUseCase.execute({
+      userId: 'user-01',
+      page: 1,
+    })
+
+    expect(checkIns).toHaveLength(2)
+    expect(checkIns).toEqual([
+      expect.objectContaining({ gym_id: 'gym-01' }),
+      expect.objectContaining({ gym_id: 'gym-02' }),
+    ])
+  })
+
+  it('should be able to fetch paginated check-ins history', async () => {
+    for (let i = 1; i <= 22; i++) {
+      await checkInRepository.create({
+        gym_id: `gym-${i}`,
+        user_id: 'user-01',
+      })
+    }
+
+    const { checkIns } = await fetchUserCheckInsUseCase.execute({
+      userId: 'user-01',
+      page: 2,
+    })
+
+    expect(checkIns).toHaveLength(2)
+    expect(checkIns).toEqual([
+      expect.objectContaining({ gym_id: 'gym-21' }),
+      expect.objectContaining({ gym_id: 'gym-22' }),
+    ])
+  })
+```
+
+<aside>
+💡 InMemoryRepository apresenta um novo método implementado na interface de CheckInRepository para buscar de forma paginada os check-ins.
+
+</aside>
+
+```
+async findManyByUserId(userId: string, page: number): Promise<CheckIn[]> {
+    const checkIns = this.checkIns
+      .filter((checkIn) => checkIn.user_id === userId)
+      .slice((page - 1) * 20, page * 20)
+
+    return checkIns
+  }
+```
