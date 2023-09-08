@@ -445,3 +445,34 @@ export class GetUserMetricsUseCaseCase {
   }
 }
 ```
+
+## Caso de uso de busca de academias
+
+Implementação do caso de uso de busca pagina de academias, criamos um métodos para pesquisar uma academia através do título.
+
+```
+export class SearchGymsUseCase {
+  constructor(private gymsRepository: GymsRepository) {}
+
+  async execute({
+    search,
+    page,
+  }: SearchGymsUseCaseRequest): Promise<SearchGymsUseCaseResponse> {
+    const gyms = await this.gymsRepository.findMany(search, page)
+
+    return { gyms }
+  }
+}
+```
+
+Implementação do método no repositório.
+
+```
+async findMany(search: string, page: number): Promise<Gym[]> {
+    const gyms = this.items
+      .filter((gym) => gym.title.includes(search))
+      .slice((page - 1) * 20, page * 20)
+
+    return gyms
+  }
+```
