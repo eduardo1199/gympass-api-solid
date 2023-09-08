@@ -420,3 +420,28 @@ async findManyByUserId(userId: string, page: number): Promise<CheckIn[]> {
     return checkIns
   }
 ```
+
+## Caso de uso de métricas
+
+Desenvolvemos o caso de uso para buscar a quantitdade de check-ins realizados pelo usuário. 
+
+<aside>
+💡 Foi necessário implementar mais um método no repositório para buscar a quantidade de métricas realizadas.
+
+</aside>
+
+```
+export class GetUserMetricsUseCaseCase {
+  constructor(private checkInRepository: CheckInRepository) {}
+
+  async execute({
+    userId,
+  }: GetUserMetricsUseCaseCaseRequest): Promise<GetMetricsUseCaseResponse> {
+    const checkInsCount = await this.checkInRepository.countByUserId(userId)
+
+    return {
+      checkInsCount,
+    }
+  }
+}
+```
