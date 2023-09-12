@@ -476,3 +476,51 @@ async findMany(search: string, page: number): Promise<Gym[]> {
     return gyms
   }
 ```
+
+## Caso de uso de academias próximas
+
+Implementação do caso de uso de buscar academias mais próxima da minha localização. 
+
+```
+export class FetchNearbyGyms {
+  constructor(private gymsRepository: GymsRepository) {}
+
+  async execute({
+    userLatitute,
+    userLongitude,
+  }: FetchNearbyGymsRequest): Promise<FetchNearbyGymsResponse> {
+    const gyms = await this.gymsRepository.findManyNearby({
+      latitude: userLatitute,
+      longitude: userLongitude,
+    })
+
+    return { gyms }
+  }
+}
+```
+
+Implementação do método de calculo de distância, para isso filtramos as academias que apresentam uma distância menor que 10km
+
+```
+async findManyNearby({
+    latitude,
+    longitude,
+  }: findManyNearby): Promise<Gym[]> {
+    const gyms = this.items.filter((gym) => {
+      const distance = getDistanceBetweenCoordinates(
+        {
+          latitude,
+          longitude,
+        },
+        {
+          latitude: Number(gym.latitude),
+          longitude: Number(gym.longitude),
+        },
+      )
+
+      return distance < 10
+    })
+
+    return gyms
+  }
+```
