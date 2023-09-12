@@ -524,3 +524,105 @@ async findManyNearby({
     return gyms
   }
 ```
+
+## Caso de uso de validação de check-in
+
+Implementação do caso de uso de validação de check-in. Na primeira etapa, primeiros precisamos alterar a data de validação do check-in quando for passado um id de um check-in existente. Caso não existe, é disparado um erro de not exist. 
+
+```
+export class ValidateCheckInUseCase {
+  constructor(private checkInRepository: CheckInRepository) {}
+
+  async execute({
+    checkInId,
+  }: ValidateCheckInUseCaseRequest): Promise<ValidateCheckInUseCaseResponse> {
+    const checkIn = await this.checkInRepository.findById(checkInId)
+
+    if (!checkIn) {
+      throw new ResourceNotFountError('Check-in not exist')
+    }
+
+    checkIn.validated_at = new Date()
+
+    await this.checkInRepository.save(checkIn)
+
+    return {
+      checkIn,
+    }
+  }
+}
+```
+
+Implementação do método save para alterar a data de validação do check-in caso exista.
+
+```
+async save(checkIn: CheckIn): Promise<CheckIn> {
+  const checkInIndex = this.checkIns.findIndex(
+    (item) => item.id === checkIn.id,
+  )
+
+  if (checkInIndex >= 0) {
+    this.checkIns[checkInIndex] = checkIn
+  }
+
+  return checkIn
+}
+```
+
+Para segunda validação, precisamos verificar se a data de validação do check-in não excedeu 20 minutos da data de criação do check-in. Caso isso ocorra, é necessário disparar um erro. Então, após buscar o check-in pelo ID, verificamos qual a diferença entre a data atual e a data de criação do check-in em minutos, usando dayjs.
+
+```
+const distanceInMinutesFromCheckInCreation = dayjs(new Date()).diff(
+  checkIn.created_at,
+  'minutes',
+)
+
+if (distanceInMinutesFromCheckInCreation > 20) {
+  throw new LateCheckInValidate()
+}
+```
+
+Com todas essas validações, desenvolvemos os testes unitários.
+
+```
+it('should be able to validate the check-in', async () => {
+    const createdCheckIn = await checkInRepository.create({
+      gym_id: 'gym-01',
+      user_id: 'user-01',
+    })
+
+    const { checkIn } = await validateCheckInUseCase.execute({
+      checkInId: createdCheckIn.id,
+    })
+
+    expect(checkIn.validated_at).toEqual(expect.any(Date))
+    expect(checkInRepository.checkIns[0].validated_at).toEqual(expect.any(Date))
+  })
+
+  it('should not be able to validate an inexistent check-in', async () => {
+    expect(() =>
+      validateCheckInUseCase.execute({
+        checkInId: 'inexistent-check-in-id',
+      }),
+    ).rejects.toBeInstanceOf(ResourceNotFountError)
+  })
+
+  it('should not be able to validate the check-in afeter 20 minutes of its creation', async () => {
+    vi.setSystemTime(new Date(2023, 8, 12, 10, 23))
+
+    const createdCheckIn = await checkInRepository.create({
+      gym_id: 'gym-01',
+      user_id: 'user-01',
+    })
+
+    const twentyOneMinutesOnMS = 1000 * 60 * 21
+
+    vi.advanceTimersByTime(twentyOneMinutesOnMS)
+
+    await expect(() =>
+      validateCheckInUseCase.execute({
+        checkInId: createdCheckIn.id,
+      }),
+    ).rejects.toBeInstanceOf(LateCheckInValidate)
+  })
+```
