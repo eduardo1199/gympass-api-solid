@@ -626,3 +626,21 @@ it('should be able to validate the check-in', async () => {
     ).rejects.toBeInstanceOf(LateCheckInValidate)
   })
 ```
+
+## Consulta SQL utilizando o prisma
+
+para buscar todas as academias mais próximas de mim utilizando o PrismaRepository, devemos realizar uma consulta utilizando o SQL porque o prisma não tem suporte para realizar esse tipo de consulta especifica. Para isso, utilizamos o método queryRaw do prisma.
+
+```
+async findManyNearby({
+    latitude,
+    longitude,
+  }: findManyNearby): Promise<Gym[]> {
+    const gyms = await prisma.$queryRaw<Gym[]>`
+      SELECT * FROM gyms
+      WHERE ( 6371 * acos( cos( radians(${latitude}) ) * cos( radians( latitude ) ) * cos( radians( longitude ) - radians(${longitude}) ) + sin( radians(${latitude}) ) * sin( radians( latitude ) ) ) ) <= 10
+    `
+
+    return gyms
+  }
+```
