@@ -38,7 +38,7 @@
     "eslint": "8.41.0",
     "husky": "^8.0.0",
     "prisma": "4.14.1",
-    "tsup": "6.7.0",
+    "tsup": "7.3.0",
     "tsx": "3.12.7",
     "typescript": "5.0.4",
     "vite-tsconfig-paths": "4.2.0",
