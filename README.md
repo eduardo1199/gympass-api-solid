@@ -476,3 +476,246 @@ async findMany(search: string, page: number): Promise<Gym[]> {
     return gyms
   }
 ```
+
+## Caso de uso de academias próximas
+
+Implementação do caso de uso de buscar academias mais próxima da minha localização. 
+
+```
+export class FetchNearbyGyms {
+  constructor(private gymsRepository: GymsRepository) {}
+
+  async execute({
+    userLatitute,
+    userLongitude,
+  }: FetchNearbyGymsRequest): Promise<FetchNearbyGymsResponse> {
+    const gyms = await this.gymsRepository.findManyNearby({
+      latitude: userLatitute,
+      longitude: userLongitude,
+    })
+
+    return { gyms }
+  }
+}
+```
+
+Implementação do método de calculo de distância, para isso filtramos as academias que apresentam uma distância menor que 10km
+
+```
+async findManyNearby({
+    latitude,
+    longitude,
+  }: findManyNearby): Promise<Gym[]> {
+    const gyms = this.items.filter((gym) => {
+      const distance = getDistanceBetweenCoordinates(
+        {
+          latitude,
+          longitude,
+        },
+        {
+          latitude: Number(gym.latitude),
+          longitude: Number(gym.longitude),
+        },
+      )
+
+      return distance < 10
+    })
+
+    return gyms
+  }
+```
+
+## Caso de uso de validação de check-in
+
+Implementação do caso de uso de validação de check-in. Na primeira etapa, primeiros precisamos alterar a data de validação do check-in quando for passado um id de um check-in existente. Caso não existe, é disparado um erro de not exist. 
+
+```
+export class ValidateCheckInUseCase {
+  constructor(private checkInRepository: CheckInRepository) {}
+
+  async execute({
+    checkInId,
+  }: ValidateCheckInUseCaseRequest): Promise<ValidateCheckInUseCaseResponse> {
+    const checkIn = await this.checkInRepository.findById(checkInId)
+
+    if (!checkIn) {
+      throw new ResourceNotFountError('Check-in not exist')
+    }
+
+    checkIn.validated_at = new Date()
+
+    await this.checkInRepository.save(checkIn)
+
+    return {
+      checkIn,
+    }
+  }
+}
+```
+
+Implementação do método save para alterar a data de validação do check-in caso exista.
+
+```
+async save(checkIn: CheckIn): Promise<CheckIn> {
+  const checkInIndex = this.checkIns.findIndex(
+    (item) => item.id === checkIn.id,
+  )
+
+  if (checkInIndex >= 0) {
+    this.checkIns[checkInIndex] = checkIn
+  }
+
+  return checkIn
+}
+```
+
+Para segunda validação, precisamos verificar se a data de validação do check-in não excedeu 20 minutos da data de criação do check-in. Caso isso ocorra, é necessário disparar um erro. Então, após buscar o check-in pelo ID, verificamos qual a diferença entre a data atual e a data de criação do check-in em minutos, usando dayjs.
+
+```
+const distanceInMinutesFromCheckInCreation = dayjs(new Date()).diff(
+  checkIn.created_at,
+  'minutes',
+)
+
+if (distanceInMinutesFromCheckInCreation > 20) {
+  throw new LateCheckInValidate()
+}
+```
+
+Com todas essas validações, desenvolvemos os testes unitários.
+
+```
+it('should be able to validate the check-in', async () => {
+    const createdCheckIn = await checkInRepository.create({
+      gym_id: 'gym-01',
+      user_id: 'user-01',
+    })
+
+    const { checkIn } = await validateCheckInUseCase.execute({
+      checkInId: createdCheckIn.id,
+    })
+
+    expect(checkIn.validated_at).toEqual(expect.any(Date))
+    expect(checkInRepository.checkIns[0].validated_at).toEqual(expect.any(Date))
+  })
+
+  it('should not be able to validate an inexistent check-in', async () => {
+    expect(() =>
+      validateCheckInUseCase.execute({
+        checkInId: 'inexistent-check-in-id',
+      }),
+    ).rejects.toBeInstanceOf(ResourceNotFountError)
+  })
+
+  it('should not be able to validate the check-in afeter 20 minutes of its creation', async () => {
+    vi.setSystemTime(new Date(2023, 8, 12, 10, 23))
+
+    const createdCheckIn = await checkInRepository.create({
+      gym_id: 'gym-01',
+      user_id: 'user-01',
+    })
+
+    const twentyOneMinutesOnMS = 1000 * 60 * 21
+
+    vi.advanceTimersByTime(twentyOneMinutesOnMS)
+
+    await expect(() =>
+      validateCheckInUseCase.execute({
+        checkInId: createdCheckIn.id,
+      }),
+    ).rejects.toBeInstanceOf(LateCheckInValidate)
+  })
+```
+
+## Consulta SQL utilizando o prisma
+
+para buscar todas as academias mais próximas de mim utilizando o PrismaRepository, devemos realizar uma consulta utilizando o SQL porque o prisma não tem suporte para realizar esse tipo de consulta especifica. Para isso, utilizamos o método queryRaw do prisma.
+
+```
+async findManyNearby({
+    latitude,
+    longitude,
+  }: findManyNearby): Promise<Gym[]> {
+    const gyms = await prisma.$queryRaw<Gym[]>`
+      SELECT * FROM gyms
+      WHERE ( 6371 * acos( cos( radians(${latitude}) ) * cos( radians( latitude ) ) * cos( radians( longitude ) - radians(${longitude}) ) + sin( radians(${latitude}) ) * sin( radians( latitude ) ) ) ) <= 10
+    `
+
+    return gyms
+  }
+```
+
+## Criação de factories
+
+Criação de factories consiste em reduzir a utilização de instâncias de repositório nos casos de uso. É comum quando vamos introduzir o controllers, temos que instâncias repositórios para utilizar um determinado caso de uso. Com factories, podemos reduzir da seguinte forma.
+
+```
+export function makeGetUserMetricsUseCase() {
+  const checkInsRepository = new PrismaCheckInRepository()
+  const gymsRepository = new PrismaGymsRepository()
+  const useCase = new CheckInUseCase(checkInsRepository, gymsRepository)
+
+  return useCase
+}
+```
+
+## Principios de autenticação com JWT utilizando Fastify
+
+O que consiste em um JWT?
+
+JWT é uma sigla para Json Web Token ou seja, a geração de um token a partir das credenciais do usuário. Esse token é um stateless token, ou seka, um token que é não é armazenado em nenhuma persistência de dados ou melhor um banco de dados. Esse token nunca é modificado, caso seja modificado de forma externa, nossa aplicação tomará ciencia que aquele token não pertence a nosso projeto.
+
+Ou seja, cada banco de dados sabe exatamente se aquele token foi ele mesmo que gerou, isso porque no token existe uma criptografia para uma assinatura que foi o próprio banco de dados que gerou. Essa assinatura é uma palavra chave qualquer gerada pelo banco de dados. Abaixo tem um exemplo dessa estrutura:
+
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjNjMxNjg2MS05Nzk3LTRmYzAtYjc0Yi05YTM3NTM1N2E5YmIiLCJpYXQiOjE3MDEzNDc1NDR9.5ltML3bozE7Qs9CTBciwmYI5vzkpHRrXX0HPMIK8udI
+
+O campo em vermelho consiste nos headers do JWT, que leva junto a ele, criptgrafo a forma de utilização do algoritmo de criptografia.
+
+O tempo em rosa consiste no payload do JWT, que leva junto a ele, qualquer tipo de dado ou informação do usuário retornado ou persistência de informações importantes.
+
+O dado em azul consiste na assinatura do JWT, é justamente essa que é a palavra chave criptografada pelo algoritmo, que impossivelmente descoberta. Essa palavra chave sempre é armazena dentro das aplicações back-end.
+
+Para implementar o JWT no projeto com Fastify, baixamos o pacote @fastify/jwt e registramos ela no nosso app.
+
+```
+app.register(fastifyJwt, {
+  secret: env.JWT_SECRET,
+})
+```
+
+Adicionamos uma variável ambiente `JWT_SECRET` que consiste na nossa palavra chave do banco de dados. Em seguida, criamos uma rota com middleware para interceptar se aquele token enviado nos headers é válido.
+
+```
+*app*.get('/me', { onRequest: [verifyJWT] }, profile)
+```
+
+```
+export async function verifyJWT(request: FastifyRequest, reply: FastifyReply) {
+  try {
+    await request.jwtVerify()
+  } catch {
+    return reply.status(401).send({
+      message: 'Unauthorized.',
+    })
+  }
+}
+```
+
+```
+export async function profile(request: FastifyRequest, reply: FastifyReply) {
+  const getUserProfile = makeGetUserProfileUseCase()
+
+  const { user } = await getUserProfile.execute({
+    userId: request.user.sub,
+  })
+
+  return reply.status(200).send({
+    user: {
+      ...user,
+      password_hash: undefined,
+    },
+  })
+}
+```
+
+Caso verifyJWT não dispare um erro de que o JWT não é valido, a função profile é chamada retornado o usuário que está presente.
