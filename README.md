@@ -644,3 +644,78 @@ async findManyNearby({
     return gyms
   }
 ```
+
+## Criação de factories
+
+Criação de factories consiste em reduzir a utilização de instâncias de repositório nos casos de uso. É comum quando vamos introduzir o controllers, temos que instâncias repositórios para utilizar um determinado caso de uso. Com factories, podemos reduzir da seguinte forma.
+
+```
+export function makeGetUserMetricsUseCase() {
+  const checkInsRepository = new PrismaCheckInRepository()
+  const gymsRepository = new PrismaGymsRepository()
+  const useCase = new CheckInUseCase(checkInsRepository, gymsRepository)
+
+  return useCase
+}
+```
+
+## Principios de autenticação com JWT utilizando Fastify
+
+O que consiste em um JWT?
+
+JWT é uma sigla para Json Web Token ou seja, a geração de um token a partir das credenciais do usuário. Esse token é um stateless token, ou seka, um token que é não é armazenado em nenhuma persistência de dados ou melhor um banco de dados. Esse token nunca é modificado, caso seja modificado de forma externa, nossa aplicação tomará ciencia que aquele token não pertence a nosso projeto.
+
+Ou seja, cada banco de dados sabe exatamente se aquele token foi ele mesmo que gerou, isso porque no token existe uma criptografia para uma assinatura que foi o próprio banco de dados que gerou. Essa assinatura é uma palavra chave qualquer gerada pelo banco de dados. Abaixo tem um exemplo dessa estrutura:
+
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjNjMxNjg2MS05Nzk3LTRmYzAtYjc0Yi05YTM3NTM1N2E5YmIiLCJpYXQiOjE3MDEzNDc1NDR9.5ltML3bozE7Qs9CTBciwmYI5vzkpHRrXX0HPMIK8udI
+
+O campo em vermelho consiste nos headers do JWT, que leva junto a ele, criptgrafo a forma de utilização do algoritmo de criptografia.
+
+O tempo em rosa consiste no payload do JWT, que leva junto a ele, qualquer tipo de dado ou informação do usuário retornado ou persistência de informações importantes.
+
+O dado em azul consiste na assinatura do JWT, é justamente essa que é a palavra chave criptografada pelo algoritmo, que impossivelmente descoberta. Essa palavra chave sempre é armazena dentro das aplicações back-end.
+
+Para implementar o JWT no projeto com Fastify, baixamos o pacote @fastify/jwt e registramos ela no nosso app.
+
+```
+app.register(fastifyJwt, {
+  secret: env.JWT_SECRET,
+})
+```
+
+Adicionamos uma variável ambiente `JWT_SECRET` que consiste na nossa palavra chave do banco de dados. Em seguida, criamos uma rota com middleware para interceptar se aquele token enviado nos headers é válido.
+
+```
+*app*.get('/me', { onRequest: [verifyJWT] }, profile)
+```
+
+```
+export async function verifyJWT(request: FastifyRequest, reply: FastifyReply) {
+  try {
+    await request.jwtVerify()
+  } catch {
+    return reply.status(401).send({
+      message: 'Unauthorized.',
+    })
+  }
+}
+```
+
+```
+export async function profile(request: FastifyRequest, reply: FastifyReply) {
+  const getUserProfile = makeGetUserProfileUseCase()
+
+  const { user } = await getUserProfile.execute({
+    userId: request.user.sub,
+  })
+
+  return reply.status(200).send({
+    user: {
+      ...user,
+      password_hash: undefined,
+    },
+  })
+}
+```
+
+Caso verifyJWT não dispare um erro de que o JWT não é valido, a função profile é chamada retornado o usuário que está presente.
