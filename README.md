@@ -718,4 +718,76 @@ export async function profile(request: FastifyRequest, reply: FastifyReply) {
 }
 ```
 
-Caso verifyJWT não dispare um erro de que o JWT não é valido, a função profile é chamada retornado o usuário que está presente.
+Caso verifyJWT não dispare um erro de que o JWT não é valido, a função profile é chamada retornado o usuário que está presente. 
+
+## Test Environment Vitest
+
+Esse tópico é uma etapa de configuração dos testes E2E para o vitest. A problema da implementação para os testes E2E é que são testes que verificam toda a camada desde a rota HTTP ate os casos de uso, chegando ao banco de dados. Então, se os testes utilizarem o banco de dados atual, poderá ocorre um problema de impacto no banco de dados atual e nos testes adjacentes. 
+
+Por isso aplicamos a metodologia de test environment, como diz a documentação → 
+
+[Vitest](https://vitest.dev/guide/environment.html)
+
+É executar um determinado setup de testes para alguns testes específicos.
+
+```
+const prisma = new PrismaClient()
+
+// postgresql://docker:docker@localhost:5432/api_solid
+
+function generateDatabaseURL(schema: string) {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('Database environment variable not exist!')
+  }
+
+  const url = new URL(process.env.DATABASE_URL)
+
+  url.searchParams.set('schema', schema)
+
+  return url.toString()
+}
+
+export default <Environment>{
+  name: 'prisma',
+  async setup() {
+    const schema = randomUUID()
+    const databaseURL = generateDatabaseURL(schema)
+
+    process.env.DATABASE_URL = databaseURL
+
+    execSync('npx prisma migrate deploy') // executar apenas as migrates do banco de dados
+
+    return {
+      async teardown() {
+        await prisma.$executeRawUnsafe(
+          `DROP SCHEMA IF EXISTS "${schema}" CASCADE`,
+        )
+
+        await prisma.$disconnect()
+      },
+    }
+  },
+}
+
+```
+
+Para executar cada teste com banco de dados diferente. Podemos usar a mesma imagem e container do banco de dados da URL principal, porém apenas alterando o schema da URL. Para cada, será gerado um ID único que corresponde a um schema diferente do banco de dados, ou seja, uma nova “instância” do banco de dados será criada, sendo do método setup.
+
+O método teardown executa no final de cada teste, dando um drop no schema e disconectando do banco de dados.
+
+## Organizando scripts para teste
+
+```
+"test": "vitest run --dir src/use-cases",
+"test:e2e": "vitest run --dir src/http",
+"test:watch": "vitest --dir src/use-cases",
+"test:coverage": "vitest run --coverage",
+"test:ui": "vitest --ui",
+"pretest:e2e": "run-s test:create-prisma-environment test:install-prisma-environment",
+"test:create-prisma-environment": "npm link ./prisma/vitest-environment-prisma",
+"test:install-prisma-environment": "npm link vitest-environment-prisma"
+```
+
+Para execução do testes E2E, precisamos fazer uma mesclagem de 2 scripts novos por conta da execução do npm link antes de executar os testes E2E. Para isso, instalamos um pacote npm-run-all que gerencia a execução de scripts de forma encadeada.
+
+O script `pretest:e2e` executa antes da executação do script `test:e2e` . Primeiramente, ele executa run-s test:create-prisma-environment e depois  test:install-prisma-environment, para ai sim executar test:e2e, garantindo que os testes rodem com setup devidamente instalados.
