@@ -28,7 +28,7 @@
     "@fastify/jwt": "7.2.4",
     "@prisma/client": "4.14.1",
     "bcryptjs": "2.4.3",
-    "dayjs": "1.11.9",
+    "dayjs": "1.11.23",
     "dotenv": "16.0.3",
     "fastify": "4.18.0",
     "zod": "3.21.4"
